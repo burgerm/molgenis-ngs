@@ -69,7 +69,6 @@
 					<#if 0 < optimalCombinations?size>
 						<H3>Result</H3>
 						<P>We have found ${optimalCombinations?size} optimal set(s) of ${currentNumber} barcodes each. Within each set each barcode-pair differs with at least ${minimumDistance} nucleotides, and on average with ${averageDistance} nucleotides. The sets follow below.</P>
-						<P STYLE="color:brown">Be careful, this software is not very well tested yet.</P>
 						<#list optimalCombinations as combination>
 							Solution number ${combination_index + 1}:
 							<TABLE CLASS="table" STYLE="width: 1%; border:  1px solid #ddd;">
