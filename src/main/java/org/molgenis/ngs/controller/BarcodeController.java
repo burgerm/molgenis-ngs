@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
@@ -45,7 +44,7 @@ public class BarcodeController extends MolgenisPlugin
 
 	private static final Logger logger = Logger.getLogger(BarcodeController.class);
 	private final Database database;
-	private List<Tuple> selectedBarcodeTuples = new ArrayList<Tuple>(); 
+	private List<String> checkedBarcodes = new ArrayList<String>(); 
 	private List<Tuple> barcodeTuples = new ArrayList<Tuple>();
 	private Set<String> barcodeTypes = new HashSet<String>(); 
 	private List<Tuple> barcodeTypeList = new ArrayList<Tuple>();
@@ -77,7 +76,7 @@ public class BarcodeController extends MolgenisPlugin
 		model.addAttribute("barcodes", getBarcodeTypes());
 		model.addAttribute("barcodeTuples", getBarcodeTuples());
 		model.addAttribute("isException", this.isException);
-		model.addAttribute("selectedBarcodeTuples", this.selectedBarcodeTuples); // new
+		model.addAttribute("checkedBarcodes", this.checkedBarcodes); // new
 		model.addAttribute("optimalCombinations", getOptimalCombinations());
 		model.addAttribute("currentNumber", this.currentNumber);
 		model.addAttribute("averageDistance", this.averageDistance);
@@ -93,7 +92,7 @@ public class BarcodeController extends MolgenisPlugin
 		reset();
 		this.currentType = request.getParameter("type"); //user selected barcodetype
 		String currentNumberString = request.getParameter("number"); //user selected sampleAmount
-		String selectedBarcodeTuplesJson = request.getParameter("selectedbc"); //user selected barcodes
+		String checkedBarcodesString = request.getParameter("checkedBarcodes"); //user selected barcodes
 
 		try 
 		{
@@ -103,6 +102,16 @@ public class BarcodeController extends MolgenisPlugin
 		{
 			logger.error("input for currentNumber is not a number");
 			currentNumber = null;
+		}
+		
+		try 
+		{
+			this.checkedBarcodes.add(checkedBarcodesString);
+		} 
+		catch (NumberFormatException e) 
+		{
+			logger.error("input for checkedBarcodes is a list with barcodes");
+			checkedBarcodes = null;
 		}
 
 		if ("".equals(currentType) || currentNumber == null) 
@@ -129,6 +138,7 @@ public class BarcodeController extends MolgenisPlugin
 		model.addAttribute("barcodes", getBarcodeTypes());
 		model.addAttribute("barcodeTuples", getBarcodeTuples());
 		model.addAttribute("isException", this.isException);
+		model.addAttribute("checkedBarcodes", this.checkedBarcodes); // new
 		model.addAttribute("optimalCombinations", getOptimalCombinations());
 		model.addAttribute("currentNumber", this.currentNumber);
 		model.addAttribute("averageDistance", this.averageDistance);

@@ -30,7 +30,7 @@
 					<input type="checkbox" id="havebc" class="span1"/>
 			    </div>
 			    <!-- Dynamically show barcode table -->
-			    <div id="barcode-table">
+			    <div name="checkedBarcodes" id="barcode-table" >
 				</div>
 			</div>
 			<div class="control-group">

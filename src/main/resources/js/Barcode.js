@@ -55,7 +55,7 @@
 			myNode.empty();
 			//example for searching the restApi on id
 			//restApi.get('/api/v1/samplebarcode/3602');
-			var results = restApi.get('/api/v1/samplebarcodetype', null, { // the use of this harcoded uri seems wrong to me
+			var results = restApi.get('/api/v1/samplebarcodetype', null, { // the use of this harcoded uri seems wrong
 				q : [{
 					field : 'SampleBarcodeTypeName',
 					operator : 'EQUALS',
@@ -82,25 +82,12 @@
 	}
 	
 	function getCheckedBarcodes(){
-		//loop over barcode table and get the checked barcode objects
 		var checkedBarcodes = [];
-		$('#barcode-table tr').each(function(index){
-			if(index > 0){
-				var row = $(this).html();
-				if($(this).find('input:checkbox').checked){
-					//get the barcode only
-					var cells = $(this).cells;
-					for (var i = 0; i < cells.length; i++) { //loop through the cells, this looks so bad
-						if (i===2){
-							checkedBarcodes.push(cell[i]);
-						}
-					}
+		$('#barcode-table tr').each(function(index){ //loop over barcode table 
+			if(index > 0){ // skip the header
+				if ($(this).find('input[type="checkbox"]').is(':checked')){ //get the checked barcodes
+					checkedBarcodes.push($((this).cells[2]).text()); //collect checked barcode sequence. Note: using the index can't be right
 				}
-				
-//				var checkBox = $(this).html() //TODO: get checkbox element
-//				if(checkBox.attr('checked')){
-//					checkedBarcodes.push($(this).html());
-//				}
 			}
 		});
 		console.log(checkedBarcodes);
@@ -122,7 +109,9 @@
 	    $('#calculate').click(function(){
 	    	var checkBox = $('#havebc'); 
 	    	if (checkBox.attr('checked')){
-	    		getCheckedBarcodes();
+	    		//TODO: fix code below so checked barcodes are added to the request to the server
+	    		$('#calculate').data(getCheckedBarcodes());
+	    		console.log($('#calculate'));
 	    	}	
 	    });
 	});
