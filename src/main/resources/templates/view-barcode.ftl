@@ -30,12 +30,12 @@
 					<input type="checkbox" id="havebc" class="span1"/>
 			    </div>
 			    <!-- Dynamically show barcode table -->
-			    <div name="checkedBarcodes" id="barcode-table" >
+			    <div id="barcode-table" >
 				</div>
 			</div>
 			<div class="control-group">
 			    <div class="controls">
-			    	<button type="submit" id="calculate" class="btn btn-primary has-spinner">
+			    	<button type="submit" id="calculate" name="checkedBarcodes" class="btn btn-primary has-spinner">
 				        Get optimal set
 				    	<span class="spinner"><i class="icon-spin icon-refresh"></i></span>
 				    </button> (depending on the amount of possibilities, this may take a while)
