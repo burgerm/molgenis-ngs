@@ -28,7 +28,8 @@
 			//fill table
 			$.each(listOfSampleBarCodes, function(i, sampleBarCode){
 				var newRow = $('<tr />');
-				var checkBox = $('<input type="checkbox" />');
+				var value = hrefToId(sampleBarCode.href);
+				var checkBox = $('<input name="barcodes" type="checkbox" value="' + value + '" />');
 				$('<td />').append(checkBox).appendTo(newRow);
 				$.each(visibleColumns, function(j, field){
 					if(sampleBarCode[field]){
@@ -38,9 +39,6 @@
 					}
 				});
 				tableContainer.append(newRow);
-				checkBox.click(function(){
-					console.log(sampleBarCode);
-				});
 			});
 			//show table
 			$('#barcode-table').append(tableContainer).show();
@@ -55,7 +53,7 @@
 			myNode.empty();
 			//example for searching the restApi on id
 			//restApi.get('/api/v1/samplebarcode/3602');
-			var results = restApi.get('/api/v1/samplebarcodetype', null, { // the use of this harcoded uri seems wrong
+			var results = restApi.get('/api/v1/samplebarcodetype', null, { // the use of this hardcoded uri seems wrong
 				q : [{
 					field : 'SampleBarcodeTypeName',
 					operator : 'EQUALS',
@@ -81,19 +79,6 @@
 		}
 	}
 	
-	function getCheckedBarcodes(){
-		var checkedBarcodes = [];
-		$('#barcode-table tr').each(function(index){ //loop over barcode table 
-			if(index > 0){ // skip the header
-				if ($(this).find('input[type="checkbox"]').is(':checked')){ //get the checked barcodes
-					checkedBarcodes.push($((this).cells[2]).text()); //collect checked barcode sequence. Note: using the index can't be right
-				}
-			}
-		});
-		console.log(checkedBarcodes);
-		return checkedBarcodes;
-	}
-	
 	$(document).ready(function() {
 		//show barcode table when checkbox is checked
 		$('#havebc').click(function() {
@@ -103,16 +88,6 @@
 		//turn on the spinner when pushing the button and turn it off when the result returns 
 	    $('a, button').click(function() {
 	        $(this).toggleClass('active');
-	    });
-	    
-	    //get the checked barcodes if checkbox is checked
-	    $('#calculate').click(function(){
-	    	var checkBox = $('#havebc'); 
-	    	if (checkBox.attr('checked')){
-	    		//TODO: fix code below so checked barcodes are added to the request to the server
-	    		$('#calculate').data(getCheckedBarcodes());
-	    		console.log($('#calculate'));
-	    	}	
 	    });
 	});
 }($, window.top.molgenis = window.top.molgenis || {}, window.top));

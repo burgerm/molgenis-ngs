@@ -1,7 +1,6 @@
 package org.molgenis.ngs.controller;
 
 import static org.molgenis.ngs.controller.BarcodeController.URI;
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,11 +13,8 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.log4j.Logger;
 import org.molgenis.framework.db.Database;
 import org.molgenis.framework.db.DatabaseException;
-import org.molgenis.framework.db.QueryRule;
-import org.molgenis.framework.db.QueryRule.Operator;
 import org.molgenis.framework.db.jpa.JpaDatabase;
 import org.molgenis.framework.ui.MolgenisPlugin;
-import org.molgenis.omx.ngs.SampleBarcode;
 import org.molgenis.util.HandleRequestDelegationException;
 import org.molgenis.util.tuple.Tuple;
 import org.springframework.aop.framework.Advised;
@@ -27,10 +23,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
@@ -59,6 +53,7 @@ public class BarcodeController extends MolgenisPlugin
 	private final String TYPE = "TYPE";
 	private final String ID = "ID";
 	private final String BARCODE = "BARCODE";
+	private JpaDatabase jpaDb = null;
 
 	@Autowired
 	public BarcodeController(Database database) 
@@ -69,6 +64,26 @@ public class BarcodeController extends MolgenisPlugin
 		this.database = database;
 	}
 
+	public void getDatabase() throws Exception
+	{
+		try 
+		{
+			if (AopUtils.isAopProxy(database) && database instanceof Advised) 
+			{
+				Object target = ((Advised) database).getTargetSource().getTarget();
+				jpaDb = (JpaDatabase) target;
+			} 
+			else 
+			{
+				jpaDb = (JpaDatabase) database;
+			}
+		} 
+		catch (Exception e) 
+		{
+			throw new DatabaseException("Retrieving advised target database failed: "+ e.getMessage());
+		}
+	}
+	
 	@RequestMapping(method = RequestMethod.GET)
 	public String init(Model model) 
 	{
@@ -92,7 +107,7 @@ public class BarcodeController extends MolgenisPlugin
 		reset();
 		this.currentType = request.getParameter("type"); //user selected barcodetype
 		String currentNumberString = request.getParameter("number"); //user selected sampleAmount
-		String checkedBarcodesString = request.getParameter("checkedBarcodes"); //user selected barcodes
+		String[] checkedBarcodesIds = request.getParameterValues("barcodes"); //user selected barcodes
 
 		try 
 		{
@@ -106,12 +121,49 @@ public class BarcodeController extends MolgenisPlugin
 		
 		try 
 		{
-			this.checkedBarcodes.add(checkedBarcodesString);
+			// get the checked barcode sequences belonging to the Ids
+			if (checkedBarcodesIds != null)
+			{
+				String whereBarcodeIds = "";
+				for (int i = 0; i < checkedBarcodesIds.length; i++)
+				{
+					if (i < checkedBarcodesIds.length -1)
+					{
+						whereBarcodeIds += checkedBarcodesIds[i] + ",";
+					}
+					else 
+					{
+						whereBarcodeIds += checkedBarcodesIds[i];
+					}
+				}
+				
+				String barcodeQuery = "SELECT sb.SampleBarcodeSequence as BARCODE FROM SampleBarcode sb WHERE sb.id in (" + whereBarcodeIds + ");";
+				getDatabase();
+				List<Tuple> checkedBarcodeSequences = jpaDb.sql(barcodeQuery, BARCODE);
+	
+				for (int i = 0; i < checkedBarcodeSequences.size(); i++) 
+				{
+					this.checkedBarcodes.add(checkedBarcodeSequences.get(i).getString(BARCODE));
+				}
+				
+				//debug
+				if (checkedBarcodes.size() == 0) 
+				{ 
+					System.out.println("FAIL"); 
+				}
+				else 
+				{ 
+					for (String s : checkedBarcodes)
+					{
+						System.out.println(s);
+					}
+				}
+			}
 		} 
 		catch (NumberFormatException e) 
 		{
-			logger.error("input for checkedBarcodes is a list with barcodes");
-			checkedBarcodes = null;
+			logger.error("input for checkedBarcodes is a list with barcodeIds");
+			checkedBarcodes = new ArrayList<String>();
 		}
 
 		if ("".equals(currentType) || currentNumber == null) 
@@ -146,15 +198,6 @@ public class BarcodeController extends MolgenisPlugin
 		model.addAttribute("barcodeTypeList", getSelectedTypeBarcodeList());
 		return "view-barcode";
 	}
-
-//	@RequestMapping(value = "/getBarCode", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
-//	@ResponseBody
-//	public List<SampleBarcode> getBarCode(@RequestBody BarCodeRequest barCodeRequest) throws DatabaseException {
-//		String barCodeType = barCodeRequest.getBarCodeType();
-//		List<SampleBarcode> sampleBarCodes = database.find(SampleBarcode.class, new QueryRule(SampleBarcode.SAMPLEBARCODETYPE_SAMPLEBARCODETYPENAME, Operator.EQUALS, barCodeType));
-//		System.out.println(sampleBarCodes);
-//		return sampleBarCodes;
-//	}
 
 	public void calcBarcodeSet() 
 	{
@@ -217,16 +260,73 @@ public class BarcodeController extends MolgenisPlugin
 				// now extract the winners!
 				for (int j = 0; j < minDistance.size(); j++) 
 				{
-					if (maximumOfMinima.equals(minDistance.get(j)) && highestSumDistance.equals(sumDistance.get(j))) 
+					List<Tuple> solution = new ArrayList<Tuple>();
+					if (checkedBarcodes.size() > 0) // if there are barcodes checked to be included in the result
 					{
+						//TODO: include a filter to get only optimal results
 						// get all tuples in this solution
-						List<Tuple> solution = new ArrayList<Tuple>();
 						for (int k : indices.get(j)) 
 						{
 							solution.add(barcodeTypeList.get(k));
 						}
-						// add this solution to the result list
-						this.optimalCombinations.add(solution);
+						
+						// check if this solution contains the checked barcodes
+						boolean present = true;
+						boolean[] checkedbcs = new boolean[checkedBarcodes.size()];
+						for (int cb = 0; cb < checkedBarcodes.size(); cb++)
+						{
+							for (int i = 0; i < solution.size(); i++)
+							{
+								if (checkedBarcodes.get(cb).equalsIgnoreCase(solution.get(i).getString(BARCODE)))
+								{
+									checkedbcs[cb] = true;
+								}
+							}
+						}
+						
+						for (int i = 0; i < checkedbcs.length; i++)
+						{
+							if (!checkedbcs[i])
+							{
+								present = false;
+							}
+						}
+						
+						if (present) // add this solution to the result list
+						{
+							// make sure to only add solutions which are not already in the result list
+							boolean inResult = false;
+							for (int i = 0; i < this.optimalCombinations.size(); i++)
+							{
+								if (this.optimalCombinations.get(i).equals(solution))
+								{
+									inResult = true;
+								}
+							}
+							
+							if (!inResult)
+							{
+								// filter on optimal conditions
+								//TODO: fix the filter to use a less optimal solution if the most optimal combination is not available
+								if (maximumOfMinima.equals(minDistance.get(j)) && highestSumDistance.equals(sumDistance.get(j))) 
+								{
+									this.optimalCombinations.add(solution);
+								}
+							}
+						}
+					}
+					else // use the default filter
+					{
+						if (maximumOfMinima.equals(minDistance.get(j)) && highestSumDistance.equals(sumDistance.get(j))) 
+						{
+							// get all tuples in this solution
+							for (int k : indices.get(j)) 
+							{
+								solution.add(barcodeTypeList.get(k));
+							}
+							// add this solution to the result list
+							this.optimalCombinations.add(solution);
+						}
 					}
 				}
 
@@ -317,12 +417,7 @@ public class BarcodeController extends MolgenisPlugin
 		return dist;
 	}
 
-	/*
-	 * TODO: remove this
-	 * For future use: This function may be implemented if we want to return the
-	 * default barcode sets in the same way as we do with the calculated sets...
-	 * Currently we just show a hard coded html table ...
-	 */
+
 	private List<List<Tuple>> defaultBarcodeSets(String currentType2,Integer currentNumber2) 
 	{
 		return null;
@@ -342,6 +437,7 @@ public class BarcodeController extends MolgenisPlugin
 
 		return typeList;
 	}
+	
 
 	public void collectBarcodes() throws DatabaseException 
 	{
@@ -351,26 +447,8 @@ public class BarcodeController extends MolgenisPlugin
 		try {
 			// get barcodes
 			String barcodeQuery = "SELECT sb.Active as ACTIVE, st.SampleBarcodeTypeName as TYPE, sb.SampleBarcodeNr as ID, sb.SampleBarcodeSequence as BARCODE FROM SampleBarcode sb, SampleBarcodeType st WHERE sb.SampleBarcodeType = st.id;";
-
-			JpaDatabase jpaDb = null;
-			try 
-			{
-				if (AopUtils.isAopProxy(database) && database instanceof Advised) 
-				{
-					Object target = ((Advised) database).getTargetSource().getTarget();
-					jpaDb = (JpaDatabase) target;
-				} 
-				else 
-				{
-					jpaDb = (JpaDatabase) database;
-				}
-			} 
-			catch (Exception e) 
-			{
-				throw new DatabaseException("Retrieving advised target database failed: "+ e.getMessage());
-			}
-
-			List<Tuple> currentRows = jpaDb.sql(barcodeQuery, ACTIVE, TYPE, ID,BARCODE);
+			getDatabase();
+			List<Tuple> currentRows = jpaDb.sql(barcodeQuery, ACTIVE, TYPE, ID, BARCODE);
 
 			for (Tuple row : currentRows) 
 			{
@@ -456,6 +534,7 @@ public class BarcodeController extends MolgenisPlugin
 
 		return resultList;
 	}
+	
 
 	private void reset() 
 	{
@@ -472,6 +551,7 @@ public class BarcodeController extends MolgenisPlugin
 
 		this.currentType = "";
 		this.currentNumber = 0;
+		this.checkedBarcodes = new ArrayList<String>();
 		this.optimalCombinations = new ArrayList<List<Tuple>>();
 		this.minimumDistance = Integer.MIN_VALUE;
 		this.averageDistance = new Double(0);
